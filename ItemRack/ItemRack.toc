@@ -1,4 +1,4 @@
-## Interface: 11508
+## Interface: 11509
 ## Title: ItemRack - Classic
 ## Version: 5.0
 ## Author: Gello - Updated for Classic by Rottenbeer, Roadblock, EinBaum

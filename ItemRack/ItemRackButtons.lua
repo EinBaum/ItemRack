@@ -94,6 +94,7 @@ function ItemRack.InitButtons()
 		end
 		button:RegisterForDrag("LeftButton", "RightButton")
 		button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+		button:SetAttribute("useOnKeyDown", false)
 		ItemRack.AddMouseoverFrame("ItemRackButton" .. i, button)
 
 		if ItemRack.MasqueGroups and ItemRack.MasqueGroups[1] then
