@@ -393,7 +393,13 @@ function ItemRack.SetButtonBadge(button, id)
 		frame.texture:SetAllPoints(frame)
 		button.IRBadgeFrame = frame
 	end
-	frame:SetFrameLevel(_G[button:GetName() .. "Cooldown"]:GetFrameLevel() - 1)
+	-- ActionButtonTemplate pins the cooldown to the button's own level; unpin and stack strictly so the badge fits above the button but under the swipe
+	local cooldown = _G[button:GetName() .. "Cooldown"]
+	if cooldown:IsUsingParentLevel() then
+		cooldown:SetUsingParentLevel(false)
+	end
+	cooldown:SetFrameLevel(button:GetFrameLevel() + 2)
+	frame:SetFrameLevel(button:GetFrameLevel() + 1)
 	local badgeTexture = ItemRack.IconBadges[tonumber(ItemRack.GetIRString(id, true))]
 	frame.texture:SetTexture(badgeTexture)
 	frame.texture:SetShown(badgeTexture ~= nil)
