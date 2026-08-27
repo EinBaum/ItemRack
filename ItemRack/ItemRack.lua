@@ -1161,9 +1161,11 @@ function ItemRack.BuildMenu(id, menuInclude, masqueGroup)
 		for i = 1, #(ItemRack.Menu) do
 			button = ItemRack.CreateMenuButton(i, ItemRack.Menu[i]) or ItemRackButtonMenu
 			button:SetPoint("TOPLEFT", ItemRackMenuFrame, ItemRack.menuDock, xpos, ypos)
-			button:SetFrameLevel(ItemRackMenuFrame:GetFrameLevel()+1)
-			if ItemRack.Menu[i] ~= "MENU" then
-				ItemRack.SetButtonBadge(button, ItemRack.Menu[i])
+			if ItemRack.Menu[i] == "MENU" then
+				-- lock/queue/options/close sit above neighboring item cooldown swipes
+				button:SetFrameLevel(ItemRackMenuFrame:GetFrameLevel() + 5)
+			else
+				button:SetFrameLevel(ItemRackMenuFrame:GetFrameLevel() + 1)
 			end
 
 			if ItemRack.MasqueGroups then
@@ -1174,6 +1176,10 @@ function ItemRack.BuildMenu(id, menuInclude, masqueGroup)
 				if ItemRack.MasqueGroups[masqueGroup] then
 					ItemRack.MasqueGroups[masqueGroup]:AddButton(button)
 				end
+			end
+
+			if ItemRack.Menu[i] ~= "MENU" then
+				ItemRack.SetButtonBadge(button, ItemRack.Menu[i])
 			end
 
 			if ItemRack.menuOrient == "VERTICAL" then
@@ -1548,6 +1554,37 @@ function ItemRack.AddToCombatQueue(slot, id)
 	ItemRack.UpdateCombatQueue()
 end
 
+-- ActionButtonTemplate pins the cooldown to the button's own level. Unpin and stack:
+-- identity badge above the icon but under the swipe; cooldown numbers and the auto-queue
+-- wheel above the swipe so the gear is never covered by the cooldown shadow.
+function ItemRack.StackButtonLayers(button)
+	local cooldown = _G[button:GetName() .. "Cooldown"]
+	if cooldown and cooldown.IsUsingParentLevel and cooldown:IsUsingParentLevel() then
+		cooldown:SetUsingParentLevel(false)
+	end
+	local base = button:GetFrameLevel()
+	if button.IRBadgeFrame then
+		button.IRBadgeFrame:SetFrameLevel(base + 1)
+	end
+	if cooldown then
+		cooldown:SetFrameLevel(base + 2)
+	end
+	local timeText = _G[button:GetName() .. "Time"]
+	if timeText then
+		local timeFrame = timeText:GetParent()
+		if timeFrame and timeFrame ~= button then
+			timeFrame:SetFrameLevel(base + 3)
+		end
+	end
+	local queue = _G[button:GetName() .. "Queue"]
+	if queue then
+		local queueFrame = queue:GetParent()
+		if queueFrame and queueFrame ~= button then
+			queueFrame:SetFrameLevel(base + 4)
+		end
+	end
+end
+
 -- Corner badge for the queued item on a slot's queue overlay.
 local function SetQueueBadge(queue, id)
 	local parent = queue:GetParent()
@@ -1563,9 +1600,21 @@ local function SetQueueBadge(queue, id)
 	badge:SetShown(badgeTexture ~= nil)
 end
 
+local function raiseQueueAboveCooldown(queue, owner)
+	local queueFrame = queue:GetParent()
+	if not owner or not queueFrame or queueFrame == owner then return end
+	local cooldown = _G[owner:GetName() .. "Cooldown"]
+	local above = owner:GetFrameLevel() + 4
+	if cooldown then
+		above = math.max(above, cooldown:GetFrameLevel() + 1)
+	end
+	queueFrame:SetFrameLevel(above)
+end
+
 function ItemRack.UpdateCombatQueue()
 	local queue
 	for i in pairs(ItemRackUser.Buttons) do
+		local button = _G["ItemRackButton" .. i]
 		queue = _G["ItemRackButton" .. i .. "Queue"]
 		if ItemRack.CombatQueue[i] then
 			queue:SetTexture(select(2, ItemRack.GetInfoByID(ItemRack.CombatQueue[i])))
@@ -1581,9 +1630,11 @@ function ItemRack.UpdateCombatQueue()
 			queue:Hide()
 			SetQueueBadge(queue, nil)
 		end
+		ItemRack.StackButtonLayers(button)
 	end
 
 	for i = 1, 19 do
+		local slotButton = _G["Character" .. ItemRack.SlotInfo[i].name]
 		queue = _G["Character" .. ItemRack.SlotInfo[i].name .. "Queue"]
 		if ItemRack.CombatQueue[i] then
 			queue:SetTexture(select(2, ItemRack.GetInfoByID(ItemRack.CombatQueue[i])))
@@ -1593,6 +1644,7 @@ function ItemRack.UpdateCombatQueue()
 			queue:Hide()
 			SetQueueBadge(queue, nil)
 		end
+		raiseQueueAboveCooldown(queue, slotButton)
 	end
 end
 
