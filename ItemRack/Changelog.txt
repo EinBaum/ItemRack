@@ -1,44 +1,57 @@
+__ New in 5.3 - By EinBaum  __
+* Put leftover cursor items back after a swap, or clear them and abort if they won't land
+* Failed swaps no longer leave bag slots locked
+* Auto-queue can use a bag copy when another copy is already equipped
+* Hide leftover 30s equip cooldowns on unequipped items in the popup menu
+* Bind rack slots from Esc > Key Bindings > ItemRack
+* Set hotkeys fire on key-up and work in combat
+* Removed "Show set info in tooltips"
+* Empty rack buttons stay hidden after you remove them
+* Options and the event script editor can't be dragged off-screen
+* Druid Bear/Aquatic/Cat/Travel events match the form by name
+* Fix set menu wrap (slider could return 3.0000001 and never wrap)
+
 __ New in 5.0 - By EinBaum  __
-* Keep the auto-queue gear overlay (and cooldown numbers) above the cooldown swipe on rack buttons, popup-menu buttons, and the paperdoll queue icon. Raising the swipe over identity badges had covered the gear that shows auto-queue is enabled
-* Draw a curated secondary icon in the bottom-right corner of rack buttons, popup menu buttons and queue overlays so items sharing the same inventory icon are distinguishable without mouseover. Keyed by base item id in the ItemRack.IconBadges table (seeded with Goblin Rocket Helmet -> Intercept, Deepdive Helmet -> Water Breathing, Gnomish Mind Control Cap -> Mind Control); add entries to extend it
-* Fix a Lua error in the cooldown-number overlay when "cooldown numbers" was on. GetIRString returns the number 0 (truthy in Lua) on a non-item, so WriteMenuCooldowns and UpdateMenuCooldowns passed 0 to C_Container.GetItemCooldown for set names and the empty-slot entry, and WriteCooldown ran "duration - (GetTime()-start)" before any guard, erroring on the nil the cooldown API returns for an invalid id (and for any item for a few frames after a loading screen). The overlay paths now gate on a numeric baseID > 0, and WriteCooldown blanks the text when start/duration are nil
-* Remove the ItemRackDebugLog diagnostic ring buffer (DLog/DumpSlots, the DebugEnabled flag, the per-character SavedVariable, and every call site). The log-string arguments were built unconditionally at each call site even while logging was off, costing string.format and table serialization on the EquipSet, UnequipSet, ProcessBuffEvent and combat-queue paths every call. Also drop a dead GetTextureBySlot(20) call in InitBroker whose result was immediately overwritten, a duplicate IsPlayerReallyDead() call in ProcessCombatQueue, and a redundant tonumber() around GetItemCount in GetCountByID
-* Fix a Mounted/Riding set getting stuck on after dismount: when the set's items were already worn, EquipSet compared the worn ID against the saved set entry with an exact string match, so an item whose GetID string carries extra trailing empty fields counted as a different item. EquipSet then swapped a bag copy onto it, and that swap-onto-itself rewrote the set's restore pointer (set.oldset) to the set itself, so UnequipSet restored the set onto itself and never came off. Swap decision now matches on the normalized ID (UpdateIRString, trailing empty fields dropped); EquipSet also never records a set as its own restore target on the real-swap path, matching the existing no-swap guard
-* Slot buttons anchor to the nearest UIParent corner so they stay where placed when the window is resized; a corner is a fixed screen point, whereas a CENTER anchor moved the bar when dragging a window border shifted UIParent's center. Offsets are stored in UIParent units; legacy CENTER and BOTTOMLEFT saves are migrated to the corner scheme on first layout
-* Add "Keep worn item if queued" option that skips swapping a slot during set equip when the slot's auto queue is enabled and contains the currently-worn item
-* Add "Always show Onyxia Scale Cloak" option that turns the in-game Show Cloak setting on whenever Onyxia Scale Cloak is in the back slot; when any other cloak is worn, Show Cloak follows the current set's Show/Hide preference (or is left as-is if the set has no preference)
-* Add an undeletable Nothing set that empties the 12 slots whose items take 10% durability damage on death (head, shoulder, chest, waist, legs, feet, wrist, hands, back, main hand, off hand, ranged); equip table is re-asserted on every load and Save/Delete are blocked in the Options UI
-* Menu hides the instant the cursor exits the menu (or any tracked candidate frame: rack buttons, PaperDollFrame, CharacterTrinket1Slot, the docked anchor) instead of after a polling delay of up to 0.25s. Drops the MenuMouseover repeating timer; ItemRack.MenuMouseover is now driven by OnLeave hooks installed on each candidate frame via the new ItemRack.AddMouseoverFrame helper
-* Fix the menu staying open after the cursor leaves it while shift is held: MenuMouseover no longer treats a held shift key as a reason to keep the menu open, so leaving the menu into empty space hides it regardless of shift
-* Wait for a queued on-next-swing attack (Heroic Strike, Cleave, Maul, Raptor Strike) to resolve before swapping gear, instead of attempting the swap while it is queued and dropping it
-* Retry a gear swap the game rejected at the combat boundary (dismounting straight into a melee attack, where both combat flags still read false when the swap is issued but the equip lands a frame later in combat) when combat ends, scoped to the slots that never changed so it doesn't override auto-queue picks or manual swaps
-* Fix ADDON_ACTION_BLOCKED on PickupInventoryItem at the combat boundary: EquipSet and EquipItemByID now defer to the combat queue on UnitAffectingCombat as well as InCombatLockdown, since the combat flag is set a frame before InCombatLockdown when an attack starts (e.g. dismounting straight into a melee swing) and equipping a worn slot is already protected there
-* Fix queue editor growing the saved sort list by one entry every time it was opened after the player leveled up: BuildMenu re-scanned the slot's equipped item with the current player level embedded at positions 9-10 of the IR ID, and AddToSortList compared raw == against the saved ID (whose level embed reflected the save-time level), so the freshly-read copy was treated as a new item and appended. Comparison now normalizes both sides via UpdateIRString (the same key FindItem and GetInfoByID already use); enchant and gem differences are intentionally preserved as distinct entries. Already-saved duplicates stay until manually removed via the trash button
-* Fix auto-queue dropping or overriding a combat-deferred manual click when the slot's auto-queue list contained the clicked item: ProcessAutoQueue tracks origin (ItemRack.AutoQueueOrigin) and only touches CombatQueue entries it queued itself, leaving user clicks and set-deferred swaps alone
-* Dismount unequips Mounted / Riding + Moving sets on the same frame UNIT_AURA fires instead of routing through the 0.15s EventsBuffTimer coalescer or the 0.5s mount-state poll; ProcessingFrameOnEvent compares IsMounted()/UnitOnTaxi() against _lastStateMounted and calls ProcessBuffEvent synchronously when it changed (startBuff is then cleared so the timer doesn't re-run). The former CheckForMountedEvents poll is now RepollBuffEvents and only re-evaluates the Moving stop-throttle and Moving-flagged Buff events; its mount-state branch is removed
-* Moving Buff events now keep the set equipped through brief stops (under ItemRack.MovingStopThrottle seconds, default 3) so chunked movement with sub-throttle W-tap pauses doesn't oscillate the swap. Longer stops still unequip; dismount unequips instantly. Standing still while the set isn't equipped never equips on its own (the player must actually move), which prevents the set from coming back after a manual switch or after the stop-throttle fired while still mounted
-* Drain SetsWaiting on cast end so set keybinds pressed mid-cast equip when the cast resolves instead of staying stuck until the next item-lock event
-* Detect Hunter Aimed Shot / Multi-Shot / wand Shoot via combat-log SPELL_CAST_START and defer auto-queue, EquipItemByID, EquipSet and UnequipSet until the cast resolves; UNIT_SPELLCAST_START doesn't fire for these in Classic Era so cast-time ranged shots used to swap mid-draw and interrupt the cast. UnequipSet also now defers during normal casts (previously only gated on AnythingLocked)
-* Fix nil deref in ButtonsDocking when dragging a button after the parent was destroyed (guard ran after the deref)
-* Fix AnythingLocked skipping slot 0 (INVSLOT_AMMO) so ammo-in-set swaps no longer end the swap early while the ammo slot is still locked
-* Refresh menu icons/counts/cooldowns, the Options-window slot grid, and the KnownItems lookup cache when bag contents or worn equipment change, via a 0.15s coalesced InvUpdate timer on BAG_UPDATE and UNIT_INVENTORY_CHANGED. Previously menus showed stale data after bag moves until reopened, the FindItem cache stayed stale between set changes (every auto-queue tick hit a full bag scan), and a 5-piece set swap fired five synchronous BuildMenu rebuilds
-* Fix default Script event templates Buffs Gained and After Cast: bind event args via local ... = (arg1/arg2 globals no longer exist), replace dead UnitBuff-style index loop with AuraUtil.ForEachAura, and look up spell name from spellID via GetSpellInfo since UNIT_SPELLCAST_SUCCEEDED returns (unit, castGUID, spellID)
-* Fix Swimming default event missing the surface-swim case: trigger changed from MIRROR_TIMER_START (only fires when the breath bar appears, i.e. underwater) to SPELL_UPDATE_USABLE (fires on both water-entry and water-exit because swim-restricted abilities flip usability); script body rewritten to short-circuit on cached IRSwimmingState so unrelated SPELL_UPDATE_USABLE fires cost one IsSwimming() call, and the 0.5s polling SwimmingEvent timer is dropped because the same trigger now covers the unequip transition
-* Auto-queue swap runs on the same frame as the trinket/item use instead of waiting up to one CooldownUpdate tick (0.5s); ReflectItemUse now kicks PeriodicQueueCheck directly from the UseInventoryItem / UseAction / UseItemByName secure hooks
-* Skip auto-queue swap attempts while a blocking aura is active; aura names listed in ItemRack.QueueBlockingAuras (seeded with Transporter Malfunction)
-* Add "Riding + Moving" default event template that equips a set only while mounted and moving (e.g. Carrot on a Stick)
-* Surface compile errors from Script events on-screen instead of silently failing
-* Show "ItemRack events enabled/disabled" on-screen when toggling events from the minimap button (Alt+right click)
-* Stop the Options window from popping open on Alt+right click when no events are enabled yet
-* When bags run out mid-swap: equip what fits, stop cleanly, and show "ItemRack: bags full, swap stopped" on-screen
-* Halve CooldownUpdate timer (1s -> 0.5s) so PeriodicQueueCheck and cooldown number redraws are twice as responsive
-* Remove right-click-on-menu toggling of menu orientation; menu layout is now controlled by a "Horizontal menu" checkbox in Options > Global Settings (ItemRackSettings.MenuHorizontal)
-* Fix gear swap during channeled spells (Eagle Eye, etc.): register UNIT_SPELLCAST_CHANNEL_START/STOP, live-check CastingInfo/ChannelInfo in the auto-queue, and stop UNIT_SPELLCAST_SUCCEEDED from clearing the casting flag mid-channel
-* Fix Buff event unequip in combat (e.g. Mounted/Riding set) silently dropping the queued swap: EquipSet's combat-defer path now sets CombatQueue directly instead of going through AddToCombatQueue, whose toggle behavior was clearing the queue on repeated UNIT_AURA re-evaluations
-* Fix keybinds never saving when logging in during combat: defer to PLAYER_REGEN_ENABLED via a BindingsPending flag instead of printing and giving up
-* Speed up post-login keybind save (15s -> 1s, retry loop handles binding-cache readiness)
-* Fix RunAfterCombat queue never fully draining (table.remove-while-iterating bug)
-* Fix inverted lock check in FindInBank exact-match pass
+* Keep auto-queue gear icons and item badges above the cooldown swipe
+* Corner badges on items that share an icon (Goblin Rocket Helmet, Deepdive Helmet, Gnomish Mind Control Cap)
+* Fix cooldown-number lua error on empty menu slots and after loading screens
+* Remove debug log
+* Fix Mounted/Riding set getting stuck on after dismount
+* Rack buttons stay put when you resize the window
+* Add "Keep worn item if queued"
+* Add "Always show Onyxia Scale Cloak"
+* Add a Nothing set that strips slots that take durability on death
+* Menu hides as soon as the cursor leaves it
+* Fix menu staying open if shift is held when you mouse away
+* Wait for Heroic Strike / Cleave / Maul / Raptor Strike to land before swapping
+* Retry swaps the game rejected at the start of combat
+* Fix ADDON_ACTION_BLOCKED when swapping into combat
+* Fix queue editor adding a duplicate after you level up
+* Fix auto-queue overwriting a click you already queued in combat
+* Dismount unequips Mounted / Riding + Moving immediately
+* Moving events keep the set on through short stops (~3s) so W-tapping doesn't flicker
+* Set keybinds pressed while casting equip when the cast ends
+* Don't swap mid Aimed Shot / Multi-Shot / wand Shoot
+* Fix error when dragging a button after its parent was destroyed
+* Fix ammo slot locking the rest of a set swap
+* Refresh menus when bags or worn gear change
+* Fix Buffs Gained and After Cast script event templates
+* Fix Swimming event not firing on the surface
+* Auto-queue swaps on the same frame you use the item
+* Don't auto-queue during Transporter Malfunction
+* Add "Riding + Moving" event (Carrot on a Stick etc)
+* Show script event compile errors on screen
+* Show events enabled/disabled when toggling from the minimap
+* Don't open Options on Alt+right click if no events are enabled
+* Stop the swap and show an error when bags are full
+* Cooldown / auto-queue tick every 0.5s instead of 1s
+* Horizontal menu is an option, not a right-click on the menu
+* Don't swap during channels (Eagle Eye etc)
+* Fix Mounted/Riding unequip getting dropped in combat
+* Fix keybinds not saving if you log in during combat
+* Save keybinds 1s after login instead of 15s
+* Fix delayed combat queue never fully draining
+* Fix inverted lock check when finding items in the bank
 
 __ New in 4.23 - By Rottenbeer  __
 * Fix TOC for Cata by Adal4

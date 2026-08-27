@@ -5,7 +5,7 @@ ItemRackOpt = {
 	SetList = {}, -- numerically-indexed list of set names
 	selectedIcon = 0,
 	prevFrame = nil, -- previous subframe a frame should return to (ItemRackOptSubFrame1-x)
-	numSubFrames = 8, -- number of subframes
+	numSubFrames = 7, -- number of subframes
 	slotOrder = {1,2,3,15,5,4,19,9,16,17,18,0,14,13,12,11,8,7,6,10,6,7,8,11,12,13,14,0,18,17,16,9,19,4,5,15,3,2},
 	currentMarquee = 1,
 }
@@ -110,7 +110,6 @@ function ItemRackOpt.OnLoad(self)
 		{type="check",optset=ItemRackSettings,variable="Notify",label="Notify when ready",tooltip="Announce when an item you used comes off cooldown."},
 		{type="check",optset=ItemRackSettings,variable="NotifyThirty",label="Notify at 30",tooltip="Announce when an item you used is at 30 seconds cooldown."},
 		{type="check",optset=ItemRackSettings,variable="NotifyChatAlso",label="Notify chat also",tooltip="Send cooldown notifications to chat also."},
-		{type="check",optset=ItemRackSettings,variable="ShowSetInTooltip",label="Show set info in tooltips",tooltip="Show which set an item belongs to in the tooltip."},
 		{type="check",optset=ItemRackSettings,variable="ShowTooltips",label="Show tooltips",tooltip="Show tooltips like the one you're reading now."},
 		{type="check",optset=ItemRackSettings,variable="TinyTooltips",depend="ShowTooltips",label="Tiny Tooltips",tooltip="Shrink item tooltips to display only name, cooldown and durability."},
 		{type="check",optset=ItemRackSettings,variable="TooltipFollow",depend="ShowTooltips",label="Tooltips at pointer",tooltip="Show tooltips near the mouse."},
@@ -127,12 +126,12 @@ function ItemRackOpt.OnLoad(self)
 		{type="check",optset=ItemRackSettings,variable="EquipToggle",label="Toggle sets on equip",tooltip="When a set is equipped, if it's already equipped, unequip it."},
 		{type="check",optset=ItemRackSettings,variable="AlwaysShowOnyxiaCloak",label="Always show Onyxia Scale Cloak",tooltip="When Onyxia Scale Cloak is in the back slot the in-game Show Cloak setting is forced on, overriding any per-set Hide choice. When any other cloak (or none) is in the back slot, Show Cloak follows the current set's preference, or is left alone if the set has no Show/Hide choice."},
 		{type="check",optset=ItemRackSettings,variable="KeepWornIfQueued",label="Don't swap items already in queue",tooltip="When equipping a set, if a slot's auto queue is enabled and the item you're currently wearing is in that queue, the set leaves that slot alone. The set's chosen item for that slot is ignored."},
-		{type="check",optset=ItemRackSettings,variable="ShowHotKeys",label="Show key bindings",tooltip="Display key bindings on buttons"},
+		{type="check",optset=ItemRackSettings,variable="ShowHotKeys",label="Show key bindings",tooltip="Display key bindings on buttons. Bind slots in Esc > Key Bindings > ItemRack."},
 		{type="check",optset=ItemRackSettings,variable="EquipOnSetPick",label="Equip in options",tooltip="Check this to equip sets and items when selecting items in options or from the dropdown in the Sets tab."},
 		{type="check",optset=ItemRackSettings,variable="CharacterSheetMenus",label="Character sheet menus",tooltip="While this is checked, mouseover of slots on the character sheet will pop out a menu of items that can go in that slot."},
 		{type="check",optset=ItemRackSettings,variable="DisableAltClick",label="Disable Alt+Click",tooltip="Alt+Click on buttons dragged from the character sheet toggles auto queue for that slot.  Check this to disable that behavior. (ie to use Alt+click to self cast instead.)",combatlock=1},
 		{type="label",label=""},
-		{type="button",button=ItemRackOptKeyBindings,label="Slot Key Bindings",tooltip="Set key bindings to use slots.",combatlock=1},
+		{type="button",button=ItemRackOptKeyBindings,label="Slot Key Bindings",tooltip="Open the game Key Bindings window to bind keys to rack slots.",combatlock=1},
 		{type="button",button=ItemRackOptResetBar,label="Reset Buttons",tooltip="Remove all buttons and restore to default alpha and scale.",combatlock=1},
 		{type="button",button=ItemRackOptResetEvents,label="Reset Events",tooltip="Restore default events or wipe all events to default settings."},
 		{type="button",button=ItemRackOptResetEverything,label="Reset Everything",tooltip="Wipe all settings, sets and events to restore mod to a default state.",combatlock=1},
@@ -251,11 +250,7 @@ function ItemRackOpt.ToggleInvSelect(self)
 	local id = self:GetID()
 	self:SetChecked(false)
 	if ItemRack.IsTimerActive("SlotMarquee") or ItemRackOptSubFrame4:IsVisible() then
-		if ItemRackOptSubFrame6:IsVisible() then
-			ItemRackOpt.BindSlot(id)
-		else
-			ItemRackOpt.SetupQueue(id)
-		end
+		ItemRackOpt.SetupQueue(id)
 	elseif IsShiftKeyDown() then
 		ItemRack.ChatLinkID(ItemRackOpt.Inv[id].id)
 	else
@@ -286,30 +281,28 @@ function ItemRackOpt.ButtonOnClick(self)
 		ItemRackOptSubFrame5:Show()
 	elseif button=="ItemRackOptSetListClose" then
 		ItemRackOptSubFrame5:Hide()
-	elseif button=="ItemRackOptSlotBindCancel" then
-		ItemRackOptSubFrame6:Hide()
 	elseif button=="ItemRackOptBindCancel" then
 		ItemRackOptBindFrame:Hide()
 	elseif button=="ItemRackOptBindUnbind" then
 		ItemRackOpt.UnbindKey()
 		ItemRackOptBindFrame:Hide()
 	elseif button=="ItemRackOptKeyBindings" then
-		ItemRackOptSubFrame6:Show()
+		ItemRackOpt.OpenKeyBindings()
 	elseif button=="ItemRackOptSortListClose" then
-		ItemRackOptSubFrame7:Hide()
+		ItemRackOptSubFrame6:Hide()
 	elseif button=="ItemRackOptResetBar" then
 		ItemRack.ResetButtons()
 	elseif button=="ItemRackOptResetEverything" then
 		ItemRack.ResetEverything()
 	elseif button=="ItemRackOptEventEdit" then
-		ItemRackOptSubFrame8:Show()
+		ItemRackOptSubFrame7:Show()
 	elseif button=="ItemRackOptEventEditCancel" then
-		ItemRackOptSubFrame8:Hide()
+		ItemRackOptSubFrame7:Hide()
 	elseif button=="ItemRackOptEventNew" then
 		ItemRackOpt.EventSelected = nil
 		ItemRackOpt.EventListScrollFrameUpdate()
 		ItemRackOpt.ValidateEventListButtons()
-		ItemRackOptSubFrame8:Show()
+		ItemRackOptSubFrame7:Show()
 	elseif button=="ItemRackOptEventEditSave" then
 		ItemRackOpt.EventEditSave()
 	elseif button=="ItemRackOptEventDelete" then
@@ -1017,9 +1010,6 @@ function ItemRackOpt.UnbindKey()
 			SetBinding(GetBindingKey(action))
 		end
 	end
-	if ItemRackOpt.prevFrame==ItemRackOptSubFrame6 then
-		ItemRackOpt.prevFrame = nil
-	end
 end
 
 function ItemRackOpt.ReconcileSetBindings()
@@ -1036,20 +1026,20 @@ function ItemRackOpt.ReconcileSetBindings()
 	ItemRack.SetSetBindings()
 end
 
---[[ Slot bindings ]]
-
-function ItemRackOpt.SlotBindFrameOnShow()
-	ItemRackOpt.MakeEscable("ItemRackOptSubFrame6","add")
-	ItemRackOpt.MakeEscable("ItemRackOptFrame","remove")
-	ItemRackOpt.HideCurrentSubFrame(6)
-	ItemRackOpt.StartMarquee()
-end
-
-function ItemRackOpt.SlotBindFrameOnHide()
-	ItemRackOpt.MakeEscable("ItemRackOptSubFrame6","remove")
-	ItemRackOpt.MakeEscable("ItemRackOptFrame","add")
-	ItemRackOpt.ShowPrevSubFrame()
-	ItemRackOpt.StopMarquee()
+function ItemRackOpt.OpenKeyBindings()
+	PlaySound(SOUNDKIT.IG_MAINMENU_OPTION)
+	if Settings and Settings.OpenToCategory then
+		Settings.OpenToCategory(Settings.KEYBINDINGS_CATEGORY_ID or SETTINGS_KEYBINDINGS_LABEL or KEY_BINDINGS)
+		return
+	end
+	if KeyBindingFrame_LoadUI then
+		KeyBindingFrame_LoadUI()
+	else
+		C_AddOns.LoadAddOn("Blizzard_BindingUI")
+	end
+	if KeyBindingFrame then
+		ShowUIPanel(KeyBindingFrame)
+	end
 end
 
 function ItemRackOpt.StartMarquee()
@@ -1075,12 +1065,6 @@ function ItemRackOpt.SlotMarquee()
 	_G["ItemRackOptInv"..ItemRackOpt.slotOrder[ItemRackOpt.currentMarquee+1]]:LockHighlight()
 end
 
-function ItemRackOpt.BindSlot(slot)
-	ItemRackOpt.Binding = { type="Slot", name=ItemRack.SlotInfo[slot].real, buttonName="ItemRackButton"..slot }
-	ItemRackOpt.Binding.button = _G[ItemRackOpt.Binding.buttonName]
-	ItemRackOptBindFrame:Show()
-end
-
 --[[ Auto queues ]]
 
 function ItemRackOpt.QueuesFrameOnShow()
@@ -1092,9 +1076,9 @@ function ItemRackOpt.QueuesFrameOnHide()
 end
 
 function ItemRackOpt.SlotQueueFrameOnShow()
-	ItemRackOpt.MakeEscable("ItemRackOptSubFrame7","add")
+	ItemRackOpt.MakeEscable("ItemRackOptSubFrame6","add")
 	ItemRackOpt.MakeEscable("ItemRackOptFrame","remove")
-	ItemRackOpt.HideCurrentSubFrame(7)
+	ItemRackOpt.HideCurrentSubFrame(6)
 	for i=0,19 do
 		_G["ItemRackOptInv"..i]:Hide()
 	end
@@ -1102,7 +1086,7 @@ function ItemRackOpt.SlotQueueFrameOnShow()
 end
 
 function ItemRackOpt.SlotQueueFrameOnHide()
-	ItemRackOpt.MakeEscable("ItemRackOptSubFrame7","remove")
+	ItemRackOpt.MakeEscable("ItemRackOptSubFrame6","remove")
 	ItemRackOpt.MakeEscable("ItemRackOptFrame","add")
 	ItemRackOpt.ShowPrevSubFrame()
 	for i=0,19 do
@@ -1129,7 +1113,7 @@ function ItemRackOpt.SetupQueue(id)
 	ItemRackOptSlotQueueName:SetText(ItemRack.SlotInfo[id].real)
 	ItemRackOpt.PopulateSortList(id)
 	ItemRackOpt.ValidateSortButtons()
-	ItemRackOptSubFrame7:Show()
+	ItemRackOptSubFrame6:Show()
 end
 
 function ItemRackOpt.PopulateSortList(slot)
@@ -1535,7 +1519,7 @@ end
 function ItemRackOpt.EventListOnDoubleClick(self)
 	ItemRackOpt.EventSelected = nil
 	ItemRackOpt.EventListOnClick(self)
-	ItemRackOptSubFrame8:Show()
+	ItemRackOptSubFrame7:Show()
 end
 
 function ItemRackOpt.EventListOnEnter(self,child)
@@ -1605,7 +1589,7 @@ function ItemRackOpt.EventListIconOnClick(self)
 	if ItemRackOpt.EventList[ItemRackOpt.EventSelected][2]~="Script" then
 		ItemRackOptSubFrame5:Show() -- Buff, Stance or Zone event, go pick a set
 	else
-		ItemRackOptSubFrame8:Show() -- Script event, go straight to editing it
+		ItemRackOptSubFrame7:Show() -- Script event, go straight to editing it
 	end
 end
 
@@ -1630,15 +1614,15 @@ function ItemRackOpt.EventListEnabledOnClick(self)
 end
 
 function ItemRackOpt.EventEditOnShow()
-	ItemRackOpt.MakeEscable("ItemRackOptSubFrame8","add")
+	ItemRackOpt.MakeEscable("ItemRackOptSubFrame7","add")
 	ItemRackOpt.MakeEscable("ItemRackOptFrame","remove")
-	ItemRackOpt.HideCurrentSubFrame(8)
+	ItemRackOpt.HideCurrentSubFrame(7)
 	ItemRackOpt.EventEditPopulateFrame()
 end
 
 function ItemRackOpt.EventEditOnHide()
 	ItemRackFloatingEditor:Hide()
-	ItemRackOpt.MakeEscable("ItemRackOptSubFrame8","remove")
+	ItemRackOpt.MakeEscable("ItemRackOptSubFrame7","remove")
 	ItemRackOpt.MakeEscable("ItemRackOptFrame","add")
 	ItemRackOptEventEditPickTypeFrame:Hide()
 	ItemRackOpt.ShowPrevSubFrame()
@@ -1850,7 +1834,7 @@ function ItemRackOpt.EventEditSave(override)
 		ItemRack.ReflectEventsRunning()
 	end
 	ItemRack.Print("Event \""..eventName.."\" saved.")
-	ItemRackOptSubFrame8:Hide()
+	ItemRackOptSubFrame7:Hide()
 	ItemRackOpt.PopulateEventList()
 	for i=1,#(ItemRackOpt.EventList) do
 		if ItemRackOpt.EventList[i][1]==eventName then
@@ -1896,7 +1880,7 @@ function ItemRackOpt.ToggleEventEditor()
 		ItemRackFloatingEditorEditBox:SetWidth(ItemRackFloatingEditor:GetWidth()-50)
 		ItemRackFloatingEditorEditBox:SetText(ItemRackOptEventEditScriptEditBox:GetText())
 		ItemRackOpt.MakeEscable("ItemRackFloatingEditor","add")
-		ItemRackOpt.MakeEscable("ItemRackOptSubFrame8","remove")
+		ItemRackOpt.MakeEscable("ItemRackOptSubFrame7","remove")
 		ItemRackOptEventEditScriptEditBox:HighlightText()
 		ItemRackOptEventEditScriptEditLabel:Hide()
 		ItemRackOptEventEditScriptEditBackdrop:Hide()
@@ -1910,7 +1894,7 @@ end
 function ItemRackOpt.FloatingEditorOnHide()
 	ItemRackOpt.MakeEscable("ItemRackFloatingEditor","remove")
 	if ItemRackOptEventEditScriptFrame:IsVisible() then
-		ItemRackOpt.MakeEscable("ItemRackOptSubFrame8","add")
+		ItemRackOpt.MakeEscable("ItemRackOptSubFrame7","add")
 	end
 	ItemRackOptEventEditScriptEditBox:SetText(ItemRackFloatingEditorEditBox:GetText())
 	ItemRackOptEventEditScriptEditLabel:Show()

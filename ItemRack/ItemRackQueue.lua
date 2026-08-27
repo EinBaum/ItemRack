@@ -99,13 +99,10 @@ function ItemRack.ProcessAutoQueue(slot)
 		end
 		local cfg = ItemRackItems[candidate]
 		local takesPriority = not ready or enable == 0 or (cfg and cfg.priority)
-		if takesPriority
-			and ItemRack.ItemNearReady(candidate)
-			and GetItemCount(candidate) > 0
-			and not IsEquippedItem(candidate)
-		then
-			local bag = select(2, ItemRack.FindItem(entry))
-			if bag then
+		if takesPriority and ItemRack.ItemNearReady(candidate) then
+			local count = GetItemCount(candidate)
+			local onlyWornCopy = count == 1 and IsEquippedItem(candidate)
+			if count > 0 and not onlyWornCopy and ItemRack.FindItemInBags(entry) then
 				if ItemRack.CombatQueue[slot] ~= entry then
 					ItemRack.EquipItemByID(entry, slot)
 				end
@@ -136,7 +133,7 @@ function ItemRack.SetQueue(slot, newQueue)
 	end
 
 	if ItemRackOptFrame:IsVisible() then
-		if ItemRackOptSubFrame7:IsVisible() and ItemRackOpt.SelectedSlot == slot then
+		if ItemRackOptSubFrame6:IsVisible() and ItemRackOpt.SelectedSlot == slot then
 			ItemRackOpt.SetupQueue(slot)
 		else
 			ItemRackOpt.UpdateInv()

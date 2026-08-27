@@ -1,0 +1,42 @@
+<Bindings>
+	<Binding name="CLICK ItemRackButton0:LeftButton" category = "ItemRack">
+	</Binding>
+	<Binding name="CLICK ItemRackButton1:LeftButton" category = "ItemRack">
+	</Binding>
+	<Binding name="CLICK ItemRackButton2:LeftButton" category = "ItemRack">
+	</Binding>
+	<Binding name="CLICK ItemRackButton3:LeftButton" category = "ItemRack">
+	</Binding>
+	<Binding name="CLICK ItemRackButton4:LeftButton" category = "ItemRack">
+	</Binding>
+	<Binding name="CLICK ItemRackButton5:LeftButton" category = "ItemRack">
+	</Binding>
+	<Binding name="CLICK ItemRackButton6:LeftButton" category = "ItemRack">
+	</Binding>
+	<Binding name="CLICK ItemRackButton7:LeftButton" category = "ItemRack">
+	</Binding>
+	<Binding name="CLICK ItemRackButton8:LeftButton" category = "ItemRack">
+	</Binding>
+	<Binding name="CLICK ItemRackButton9:LeftButton" category = "ItemRack">
+	</Binding>
+	<Binding name="CLICK ItemRackButton10:LeftButton" category = "ItemRack">
+	</Binding>
+	<Binding name="CLICK ItemRackButton11:LeftButton" category = "ItemRack">
+	</Binding>
+	<Binding name="CLICK ItemRackButton12:LeftButton" category = "ItemRack">
+	</Binding>
+	<Binding name="CLICK ItemRackButton13:LeftButton" category = "ItemRack">
+	</Binding>
+	<Binding name="CLICK ItemRackButton14:LeftButton" category = "ItemRack">
+	</Binding>
+	<Binding name="CLICK ItemRackButton15:LeftButton" category = "ItemRack">
+	</Binding>
+	<Binding name="CLICK ItemRackButton16:LeftButton" category = "ItemRack">
+	</Binding>
+	<Binding name="CLICK ItemRackButton17:LeftButton" category = "ItemRack">
+	</Binding>
+	<Binding name="CLICK ItemRackButton18:LeftButton" category = "ItemRack">
+	</Binding>
+	<Binding name="CLICK ItemRackButton19:LeftButton" category = "ItemRack">
+	</Binding>
+</Bindings>

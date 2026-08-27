@@ -83,8 +83,17 @@ function ItemRack.InitButtons()
 		end)
 	end
 
+	local function wrapShow(button)
+		local origShow = button.Show
+		button.Show = function(self)
+			if ItemRackUser.Buttons[self:GetID()] then
+				origShow(self)
+			end
+		end
+	end
 	for i = 0, 20 do
 		local button = _G["ItemRackButton" .. i]
+		wrapShow(button)
 		if i < 20 then
 			button:SetAttribute("type", "item")
 			button:SetAttribute("slot", i)
@@ -382,7 +391,7 @@ function ItemRack.ConstructLayout()
 	ItemRack.UpdateButtons()
 end
 
--- corner badge for the button's slot, on a child frame above the button's border
+-- corner badge on a child frame so it stacks above the cooldown swipe with the auto-queue gear
 function ItemRack.SetButtonBadge(button, id)
 	local frame = button.IRBadgeFrame
 	if not frame then
@@ -393,7 +402,7 @@ function ItemRack.SetButtonBadge(button, id)
 		frame.texture:SetAllPoints(frame)
 		button.IRBadgeFrame = frame
 	end
-	ItemRack.StackButtonLayers(button)
+	ItemRack.RaiseAboveCooldown(frame, button)
 	local badgeTexture = ItemRack.IconBadges[tonumber(ItemRack.GetIRString(id, true))]
 	frame.texture:SetTexture(badgeTexture)
 	frame.texture:SetShown(badgeTexture ~= nil)
@@ -549,7 +558,7 @@ function ItemRack.ButtonPostClick(self, button)
 				ItemRackOpt.SetupQueue(id)
 			end
 			ItemRack.GetQueuesEnabled()[id] = not ItemRack.GetQueuesEnabled()[id]
-			if ItemRackOptSubFrame7 and ItemRackOptSubFrame7:IsVisible() and ItemRackOpt.SelectedSlot == id then
+			if ItemRackOptSubFrame6 and ItemRackOptSubFrame6:IsVisible() and ItemRackOpt.SelectedSlot == id then
 				ItemRackOptQueueEnable:SetChecked(ItemRack.GetQueuesEnabled()[id])
 			end
 			ItemRack.UpdateCombatQueue()

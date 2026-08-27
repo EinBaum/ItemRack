@@ -6,9 +6,8 @@
 		3 - Events
 		4 - Queues
 		5 - Pick set
-		6 - Bind slot
-		7 - AutoQueue sort list
-		8 - Event edit
+		6 - AutoQueue sort list
+		7 - Event edit
 	-->
 
 	<CheckButton name="ItemRackOptSimpleCheckButton" inherits="UICheckButtonTemplate" virtual="true">
@@ -850,7 +849,7 @@
 	</Button>
 
 
-	<Frame name="ItemRackOptFrame" hidden="true" movable="true" enableMouse="true" toplevel="true" inherits="BackdropTemplate">
+	<Frame name="ItemRackOptFrame" hidden="true" clampedToScreen="true" movable="true" enableMouse="true" toplevel="true" inherits="BackdropTemplate">
 		<Size>
 			<AbsDimension x="288" y="348"/>
 		</Size>
@@ -2083,52 +2082,6 @@
 			</Frame>
 
 			<Frame name="ItemRackOptSubFrame6" inherits="ItemRackOptSubFrameTemplate">
-				<Layers>
-					<Layer level="BACKGROUND">
-						<FontString font="GameFontNormalLarge" justifyH="CENTER" text="Select a slot to bind to a key.">
-							<Size>
-								<AbsDimension x="128" y="60"/>
-							</Size>
-							<Anchors>
-								<Anchor point="TOP">
-									<Offset>
-										<AbsDimension x="0" y="-40"/>
-									</Offset>
-								</Anchor>
-							</Anchors>
-						</FontString>
-					</Layer>
-				</Layers>
-				<Frames>
-					<Button name="ItemRackOptSlotBindCancel" inherits="ItemRackOptListButtonTemplate" text="Cancel">
-						<Size>
-							<AbsDimension x="60" y="26"/>
-						</Size>
-						<Anchors>
-							<Anchor point="BOTTOMRIGHT">
-								<Offset>
-									<AbsDimension x="-8" y="8"/>
-								</Offset>
-							</Anchor>
-						</Anchors>
-<!--						<Scripts>
-							<OnClick>
-								ItemRackOptSubFrame6:Hide()
-							</OnClick>
-						</Scripts> -->
-					</Button>
-				</Frames>
-				<Scripts>
-					<OnShow>
-						ItemRackOpt.SlotBindFrameOnShow()
-					</OnShow>
-					<OnHide>
-						ItemRackOpt.SlotBindFrameOnHide()
-					</OnHide>
-				</Scripts>
-			</Frame>
-
-			<Frame name="ItemRackOptSubFrame7" inherits="ItemRackOptSubFrameTemplate">
 				<Size>
 					<AbsDimension x="276" y="320"/>
 				</Size>
@@ -2541,7 +2494,7 @@
 				</Frames>
 			</Frame>
 
-			<Frame name="ItemRackOptSubFrame8" inherits="ItemRackOptSubFrameTemplate">
+			<Frame name="ItemRackOptSubFrame7" inherits="ItemRackOptSubFrameTemplate">
 				<Layers>
 					<Layer level="ARTWORK">
 						<FontString name="ItemRackOptEventEditNameLabel" inherits="GameFontHighlightSmall" text="Name of event:">
@@ -3113,7 +3066,7 @@
 	</Frame>
 
 
-	<Frame name="ItemRackFloatingEditor" parent="UIParent" movable="true" resizable="true" enableMouse="true" toplevel="true" hidden="true" inherits="BackdropTemplate">
+	<Frame name="ItemRackFloatingEditor" parent="UIParent" clampedToScreen="true" movable="true" resizable="true" enableMouse="true" toplevel="true" hidden="true" inherits="BackdropTemplate">
 		<Size>
 			<AbsDimension x="400" y="300"/>
 		</Size>

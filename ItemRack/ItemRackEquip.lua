@@ -245,11 +245,15 @@ function ItemRack.IterateSwapList(setname)
 		end
 	end
 	if ItemRack.AbortSwap then
+		ItemRack.ClearLockList()
 		if ItemRack.AbortSwap == 1 then
 			UIErrorsFrame:AddMessage("ItemRack: bags full, swap stopped", 1, .3, .3, 1, UIERRORS_HOLD_TIME)
 		else
 			ItemRack.Print("Swap stopped. " .. (ItemRack.AbortReasons[ItemRack.AbortSwap] or ""))
 		end
+	end
+	if CursorHasItem() then
+		ClearCursor()
 	end
 end
 
@@ -301,6 +305,19 @@ function ItemRack.MoveItem(fromBag, fromSlot, toBag, toSlot)
 			toBag = INVSLOT_RANGED
 		end
 		PickupInventoryItem(toBag)
+	end
+	-- Displaced item sits on the cursor after the two pickups; put it back in the source slot.
+	if CursorHasItem() then
+		if fromSlot then
+			C_Container.PickupContainerItem(fromBag, fromSlot)
+		else
+			PickupInventoryItem(fromBag)
+		end
+	end
+	-- Cursor still holding means the swap did not complete (lock, GCD, full bag).
+	if CursorHasItem() then
+		ClearCursor()
+		ItemRack.AbortSwap = 4
 	end
 end
 

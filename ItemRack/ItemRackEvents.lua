@@ -293,15 +293,39 @@ function ItemRack.ProcessingFrameOnEvent(self, event, ...)
 	end
 end
 
+-- default Druid events store bar indexes (Bear=1, Aquatic=2, Cat=3, Travel=4);
+-- missing forms slide later slots down, so look up by name instead
+local druidStanceNames = {
+	[1] = { "Bear Form", "Dire Bear Form" },
+	[2] = { "Aquatic Form" },
+	[3] = { "Cat Form" },
+	[4] = { "Travel Form" },
+}
+
 function ItemRack.GetStanceNumber(name)
-	if tonumber(name) then
-		return name
-	end
-	for i = 1, GetNumShapeshiftForms() do
+	local numForms = GetNumShapeshiftForms() or 0
+	for i = 1, numForms do
 		if name == select(2, GetShapeshiftFormInfo(i)) then
 			return i
 		end
 	end
+	local stanceNum = tonumber(name)
+	if stanceNum == nil then
+		return
+	end
+	local _, playerClass = UnitClass("player")
+	if playerClass == "DRUID" and druidStanceNames[stanceNum] then
+		for i = 1, numForms do
+			local formName = select(2, GetShapeshiftFormInfo(i))
+			for _, targetName in ipairs(druidStanceNames[stanceNum]) do
+				if formName == targetName then
+					return i
+				end
+			end
+		end
+		return -- form not on the bar; do not use a shifted index
+	end
+	return stanceNum
 end
 
 local function eventBlockedByInstance(event)

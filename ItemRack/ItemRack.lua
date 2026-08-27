@@ -91,6 +91,7 @@ ItemRack.ItemsVersion = 1
 local defaultItems = ItemRackItems
 
 ItemRack.Menu = {}
+ItemRack.MenuBroken = {} -- [IR id] = broken, set while building the menu
 ItemRack.LockList = {} -- [-2..10][slot] = already tagged for a swap
 ItemRack.BankSlots = { -1, 5, 6, 7, 8, 9, 10 }
 ItemRack.KnownItems = {} -- [IR id] = location; worn = -(slot+1), bag = bag*100+slot
@@ -117,6 +118,11 @@ ItemRack.SlotInfo = {
 	[18] = { name = "RangedSlot", real = "Ranged", INVTYPE_RANGED = 1, INVTYPE_RANGEDRIGHT = 1, INVTYPE_THROWN = 1, INVTYPE_RELIC = 1 },
 	[19] = { name = "TabardSlot", real = "Tabard", INVTYPE_TABARD = 1 },
 }
+
+-- Esc > Key Bindings > ItemRack (CLICK ItemRackButtonN:LeftButton)
+for i = 0, 19 do
+	_G["BINDING_NAME_CLICK ItemRackButton" .. i .. ":LeftButton"] = ItemRack.SlotInfo[i].real
+end
 
 -- corner badges for items sharing the same inventory icon, by base item id
 ItemRack.IconBadges = {
@@ -161,7 +167,6 @@ ItemRack.TooltipInfo = {
 	{ "ItemRackOptItemStatsPriority", "Priority", "Check this to make this item auto equip when it comes off cooldown even if the equipped item is off cooldown and waiting to be used." },
 	{ "ItemRackOptItemStatsKeepEquipped", "Pause Queue", "Check this to suspend the auto queue for this slot until the item is unequipped. (For instance if you have another mod handling the auto equip of a riding crop." },
 	{ "ItemRackOptQueueEnable", "Auto Queue This Slot", "Check this to allow this slot to auto queue.  When an item goes on cooldown, it will swap for an item higher on the list that's off cooldown." },
-	{ "ItemRackOptSetsHideCheckButton", "Hide", "Hide this set in menus. (Equivalent of Alt+clicking the set in the menu)" },
 	{ "ItemRackOptSetsSaveButton", "Save Set", "Save this set. Some settings like key binding, cloak/helm visibility and whether it's hidden can only be changed to a saved set." },
 	{ "ItemRackOptSetsDeleteButton", "Delete Set", "Delete this set definition. If you want to remove it from the menu and may want it again in the future, check 'Hide' to the left." },
 	{ "ItemRackOptSetsBindButton", "Bind Key to Set", "This will let you bind a key or key combination to equip a set." },
@@ -482,49 +487,6 @@ function ItemRack.UpdateClassSpecificStuff()
 	end
 end
 
-function ItemRack.OnSetBagItem(tooltip, bag, slot)
-	ItemRack.ListSetsHavingItem(tooltip, ItemRack.GetID(bag, slot), true)
-end
-
-function ItemRack.OnSetInventoryItem(tooltip, unit, inv_slot)
-	ItemRack.ListSetsHavingItem(tooltip, ItemRack.GetID(inv_slot), true)
-end
-
-function ItemRack.OnSetHyperlink(tooltip, link)
-	ItemRack.ListSetsHavingItem(tooltip, link:match("item:(.+)"))
-end
-
-do
-	local data = {}
-
-	function ItemRack.ListSetsHavingItem(tooltip, id, exact)
-		if ItemRackSettings.ShowSetInTooltip ~= "ON" then
-			return
-		end
-		if not id or id == 0 then return end
-		local same_ids = ItemRack.SameID
-		for name, set in pairs(ItemRackUser.Sets) do
-			for _, item in pairs(set.equip) do
-				if exact then
-					item = ItemRack.UpdateIRString(item)
-					if item == id then
-						data[name] = true
-					end
-				else
-					if same_ids(item, id) then
-						data[name] = true
-					end
-				end
-			end
-		end
-		for name in pairs(data) do
-			tooltip:AddDoubleLine("ItemRack Set: ", name, 0, .6, 1, 0, .6, 1)
-			data[name] = nil
-		end
-		tooltip:Show()
-	end
-end
-
 function ItemRack.InitCore()
 	ItemRackUser.Sets["~Unequip"] = { equip = {} }
 	ItemRackUser.Sets["~CombatQueue"] = { equip = {} }
@@ -575,9 +537,6 @@ function ItemRack.InitCore()
 	hooksecurefunc("UseAction", ItemRack.newUseAction)
 	hooksecurefunc("UseItemByName", ItemRack.newUseItemByName)
 	hooksecurefunc("PaperDollFrame_OnShow", ItemRack.newPaperDollFrame_OnShow)
-	hooksecurefunc(GameTooltip, "SetBagItem", ItemRack.OnSetBagItem)
-	hooksecurefunc(GameTooltip, "SetInventoryItem", ItemRack.OnSetInventoryItem)
-	hooksecurefunc(GameTooltip, "SetHyperlink", ItemRack.OnSetHyperlink)
 
 	ItemRackFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 	ItemRackFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
@@ -638,6 +597,12 @@ function ItemRack.Print(msg)
 	if msg then
 		DEFAULT_CHAT_FRAME:AddMessage("|cFFCCCCCCItemRack: |cFFFFFFFF" .. msg)
 	end
+end
+
+function ItemRack.Error(msg)
+	if not msg then return end
+	ItemRack.Print(msg)
+	UIErrorsFrame:AddMessage("ItemRack: " .. msg, 1.0, 0.1, 0.1, 1.0, UIERRORS_HOLD_TIME)
 end
 
 function ItemRack.UpdateCurrentSet()
@@ -815,6 +780,25 @@ function ItemRack.FindItem(id, lock)
 	end
 end
 
+-- bags 0-4 via KnownItems only (no container scan; auto-queue ticks this). Ignores worn.
+function ItemRack.FindItemInBags(id)
+	id = ItemRack.UpdateIRString(id)
+	local known = ItemRack.KnownItems
+	local cached = known[id]
+	if cached and cached >= 0 then
+		local bag, slot = math.floor(cached / 100), cached % 100
+		if slot > 0 then
+			return bag, slot
+		end
+	end
+	local sameid = ItemRack.SameID
+	for cachedID, location in pairs(known) do
+		if location >= 0 and sameid(id, cachedID) then
+			return math.floor(location / 100), location % 100
+		end
+	end
+end
+
 -- searches the bank (when open) and returns bag,slot; exact match before baseID match
 function ItemRack.FindInBank(id, lock)
 	if not ItemRack.BankOpen then return end
@@ -980,7 +964,7 @@ function ItemRack.InitTimers()
 	ItemRack.Timers = {}
 end
 
--- rep = repeat until StopTimer; /script ItemRack.TimerDebug() lists timer status
+-- rep = repeat until StopTimer
 function ItemRack.CreateTimer(name, func, delay, rep)
 	ItemRack.TimerPool[name] = { func = func, delay = delay, rep = rep, elapsed = delay }
 end
@@ -1032,15 +1016,6 @@ function ItemRack.OnUpdate(self, elapsed)
 	end
 end
 
-function ItemRack.TimerDebug()
-	local on = "|cFF00FF00On"
-	local off = "|cFFFF0000Off"
-	DEFAULT_CHAT_FRAME:AddMessage("|cFF44AAFFItemRackFrame is " .. (ItemRackFrame:IsVisible() and on or off))
-	for i in pairs(ItemRack.TimerPool) do
-		DEFAULT_CHAT_FRAME:AddMessage(i .. " is " .. (ItemRack.IsTimerActive(i) and on or off))
-	end
-end
-
 --[[ Menu ]]
 
 function ItemRack.DockWindows(menuDock, relativeTo, mainDock, menuOrient, movable)
@@ -1081,6 +1056,10 @@ local function AddWearableToMenu(id, bag, slot)
 		-- the ammo menu (id 0) dedupes stacks of the same ammo
 		if id ~= 0 or not ItemRack.AlreadyInMenu(itemID) then
 			ItemRack.AddToMenu(itemID)
+			local current, maximum = C_Container.GetContainerItemDurability(bag, slot)
+			if maximum and maximum > 0 and current == 0 then
+				ItemRack.MenuBroken[itemID] = true
+			end
 		end
 	end
 end
@@ -1098,17 +1077,25 @@ function ItemRack.BuildMenu(id, menuInclude, masqueGroup)
 	local showButtonMenu = (ItemRackButtonMenu and ItemRack.menuMovable) and (IsAltKeyDown() or ItemRackUser.Locked == "OFF")
 
 	wipe(ItemRack.Menu)
+	wipe(ItemRack.MenuBroken)
 
 	if id < 20 then
 		if menuInclude then
 			local itemID = ItemRack.GetID(id)
 			if itemID ~= 0 then
 				ItemRack.AddToMenu(itemID)
+				if GetInventoryItemBroken("player", id) then
+					ItemRack.MenuBroken[itemID] = true
+				end
 			end
 			if ItemRack.SlotInfo[id].other then
-				itemID = ItemRack.GetID(ItemRack.SlotInfo[id].other)
+				local other = ItemRack.SlotInfo[id].other
+				itemID = ItemRack.GetID(other)
 				if itemID ~= 0 then
 					ItemRack.AddToMenu(itemID)
+					if GetInventoryItemBroken("player", other) then
+						ItemRack.MenuBroken[itemID] = true
+					end
 				end
 			end
 		end
@@ -1147,7 +1134,8 @@ function ItemRack.BuildMenu(id, menuInclude, masqueGroup)
 		local button, icon
 
 		if ItemRackUser.SetMenuWrap == "ON" then
-			max_cols = ItemRackUser.SetMenuWrapValue
+			-- Slider:GetValue() can return 3.0000001; == would never wrap
+			max_cols = math.floor(tonumber(ItemRackUser.SetMenuWrapValue) or 3)
 		elseif #(ItemRack.Menu) > 24 then
 			max_cols = 5
 		elseif #(ItemRack.Menu) > 18 then
@@ -1161,12 +1149,7 @@ function ItemRack.BuildMenu(id, menuInclude, masqueGroup)
 		for i = 1, #(ItemRack.Menu) do
 			button = ItemRack.CreateMenuButton(i, ItemRack.Menu[i]) or ItemRackButtonMenu
 			button:SetPoint("TOPLEFT", ItemRackMenuFrame, ItemRack.menuDock, xpos, ypos)
-			if ItemRack.Menu[i] == "MENU" then
-				-- lock/queue/options/close sit above neighboring item cooldown swipes
-				button:SetFrameLevel(ItemRackMenuFrame:GetFrameLevel() + 5)
-			else
-				button:SetFrameLevel(ItemRackMenuFrame:GetFrameLevel() + 1)
-			end
+			button:SetFrameLevel(ItemRackMenuFrame:GetFrameLevel()+1)
 
 			if ItemRack.MasqueGroups then
 				for _, group in pairs(ItemRack.MasqueGroups) do
@@ -1185,7 +1168,7 @@ function ItemRack.BuildMenu(id, menuInclude, masqueGroup)
 			if ItemRack.menuOrient == "VERTICAL" then
 				xpos = xpos + ItemRack.DockInfo[ItemRack.currentDock].xdir*40
 				col = col + 1
-				if col == max_cols then
+				if col >= max_cols then
 					xpos = ItemRack.DockInfo[ItemRack.currentDock].xstart
 					col = 0
 					ypos = ypos + ItemRack.DockInfo[ItemRack.currentDock].ydir*40
@@ -1195,7 +1178,7 @@ function ItemRack.BuildMenu(id, menuInclude, masqueGroup)
 			else
 				ypos = ypos + ItemRack.DockInfo[ItemRack.currentDock].ydir*40
 				col = col + 1
-				if col == max_cols then
+				if col >= max_cols then
 					ypos = ItemRack.DockInfo[ItemRack.currentDock].ystart
 					col = 0
 					xpos = xpos + ItemRack.DockInfo[ItemRack.currentDock].xdir*40
@@ -1253,7 +1236,10 @@ function ItemRack.BuildMenu(id, menuInclude, masqueGroup)
 				end
 			else
 				_G["ItemRackMenu" .. i .. "Name"]:SetText("")
-				if ItemRack.Menu[i] ~= 0 and ItemRack.GetCountByID(ItemRack.Menu[i]) == 0 then
+				if ItemRack.MenuBroken[ItemRack.Menu[i]] then
+					border:SetVertexColor(1, .1, .1)
+					border:Show()
+				elseif ItemRack.Menu[i] ~= 0 and ItemRack.GetCountByID(ItemRack.Menu[i]) == 0 then
 					border:SetVertexColor(.3, .5, 1)
 					border:Show()
 				end
@@ -1268,6 +1254,16 @@ function ItemRack.BuildMenu(id, menuInclude, masqueGroup)
 	end
 end
 
+-- GetItemCooldown keeps the leftover 30s equip lockout on bag items; hide that.
+-- Worn items still show it (you cannot use them yet). Real use CDs have duration > 30.
+function ItemRack.GetShownItemCooldown(itemID)
+	local start, duration, enable = C_Container.GetItemCooldown(itemID)
+	if start and start > 0 and duration and duration <= 30 and not IsEquippedItem(itemID) then
+		return 0, 0, enable
+	end
+	return start, duration, enable
+end
+
 function ItemRack.UpdateMenuCooldowns()
 	local writeNumbers = ItemRackSettings.CooldownCount == "ON" and ItemRackMenuFrame:IsVisible()
 	local menuOpenIsItem = ItemRack.menuOpen < 20
@@ -1275,7 +1271,7 @@ function ItemRack.UpdateMenuCooldowns()
 		local baseID = tonumber(ItemRack.GetIRString(ItemRack.Menu[i], true)) -- nil/0 for set names and the empty-slot entry
 		local start, duration, enable
 		if baseID and baseID > 0 and menuOpenIsItem then
-			start, duration, enable = C_Container.GetItemCooldown(baseID)
+			start, duration, enable = ItemRack.GetShownItemCooldown(baseID)
 			CooldownFrame_Set(_G["ItemRackMenu" .. i .. "Cooldown"], start, duration, enable)
 		else
 			_G["ItemRackMenu" .. i .. "Cooldown"]:Hide()
@@ -1293,7 +1289,7 @@ function ItemRack.WriteMenuCooldowns()
 	for i = 1, #ItemRack.Menu do
 		local baseID = tonumber(ItemRack.GetIRString(ItemRack.Menu[i], true)) -- nil/0 for set names and the empty-slot entry
 		if baseID and baseID > 0 then
-			ItemRack.WriteCooldown(_G["ItemRackMenu" .. i .. "Time"], C_Container.GetItemCooldown(baseID))
+			ItemRack.WriteCooldown(_G["ItemRackMenu" .. i .. "Time"], ItemRack.GetShownItemCooldown(baseID))
 		else
 			_G["ItemRackMenu" .. i .. "Time"]:SetText("")
 		end
@@ -1470,7 +1466,7 @@ function ItemRack.EquipItemByID(id, slot)
 							PickupInventoryItem(slot)
 							C_Container.PickupContainerItem(b, s)
 						else
-							ItemRack.Print("Not enough room to perform swap.")
+							ItemRack.Error("Not enough room to perform swap.")
 						end
 					end
 				end
@@ -1481,7 +1477,7 @@ function ItemRack.EquipItemByID(id, slot)
 				PickupInventoryItem(slot)
 				C_Container.PickupContainerItem(b, s)
 			else
-				ItemRack.Print("Not enough room to perform swap.")
+				ItemRack.Error("Not enough room to perform swap.")
 			end
 		end
 	end
@@ -1554,37 +1550,6 @@ function ItemRack.AddToCombatQueue(slot, id)
 	ItemRack.UpdateCombatQueue()
 end
 
--- ActionButtonTemplate pins the cooldown to the button's own level. Unpin and stack:
--- identity badge above the icon but under the swipe; cooldown numbers and the auto-queue
--- wheel above the swipe so the gear is never covered by the cooldown shadow.
-function ItemRack.StackButtonLayers(button)
-	local cooldown = _G[button:GetName() .. "Cooldown"]
-	if cooldown and cooldown.IsUsingParentLevel and cooldown:IsUsingParentLevel() then
-		cooldown:SetUsingParentLevel(false)
-	end
-	local base = button:GetFrameLevel()
-	if button.IRBadgeFrame then
-		button.IRBadgeFrame:SetFrameLevel(base + 1)
-	end
-	if cooldown then
-		cooldown:SetFrameLevel(base + 2)
-	end
-	local timeText = _G[button:GetName() .. "Time"]
-	if timeText then
-		local timeFrame = timeText:GetParent()
-		if timeFrame and timeFrame ~= button then
-			timeFrame:SetFrameLevel(base + 3)
-		end
-	end
-	local queue = _G[button:GetName() .. "Queue"]
-	if queue then
-		local queueFrame = queue:GetParent()
-		if queueFrame and queueFrame ~= button then
-			queueFrame:SetFrameLevel(base + 4)
-		end
-	end
-end
-
 -- Corner badge for the queued item on a slot's queue overlay.
 local function SetQueueBadge(queue, id)
 	local parent = queue:GetParent()
@@ -1600,21 +1565,24 @@ local function SetQueueBadge(queue, id)
 	badge:SetShown(badgeTexture ~= nil)
 end
 
-local function raiseQueueAboveCooldown(queue, owner)
-	local queueFrame = queue:GetParent()
-	if not owner or not queueFrame or queueFrame == owner then return end
+-- Child overlay (auto-queue gear, identity badge) sits above the cooldown swipe.
+-- ActionButtonTemplate pins the swipe to the button; unpin so a higher child can draw over it.
+function ItemRack.RaiseAboveCooldown(frame, owner)
+	if not owner or not frame or frame == owner then return end
 	local cooldown = _G[owner:GetName() .. "Cooldown"]
-	local above = owner:GetFrameLevel() + 4
+	if cooldown and cooldown.IsUsingParentLevel and cooldown:IsUsingParentLevel() then
+		cooldown:SetUsingParentLevel(false)
+	end
+	local above = owner:GetFrameLevel() + 1
 	if cooldown then
 		above = math.max(above, cooldown:GetFrameLevel() + 1)
 	end
-	queueFrame:SetFrameLevel(above)
+	frame:SetFrameLevel(above)
 end
 
 function ItemRack.UpdateCombatQueue()
 	local queue
 	for i in pairs(ItemRackUser.Buttons) do
-		local button = _G["ItemRackButton" .. i]
 		queue = _G["ItemRackButton" .. i .. "Queue"]
 		if ItemRack.CombatQueue[i] then
 			queue:SetTexture(select(2, ItemRack.GetInfoByID(ItemRack.CombatQueue[i])))
@@ -1630,11 +1598,10 @@ function ItemRack.UpdateCombatQueue()
 			queue:Hide()
 			SetQueueBadge(queue, nil)
 		end
-		ItemRack.StackButtonLayers(button)
+		ItemRack.RaiseAboveCooldown(queue:GetParent(), _G["ItemRackButton" .. i])
 	end
 
 	for i = 1, 19 do
-		local slotButton = _G["Character" .. ItemRack.SlotInfo[i].name]
 		queue = _G["Character" .. ItemRack.SlotInfo[i].name .. "Queue"]
 		if ItemRack.CombatQueue[i] then
 			queue:SetTexture(select(2, ItemRack.GetInfoByID(ItemRack.CombatQueue[i])))
@@ -1644,7 +1611,7 @@ function ItemRack.UpdateCombatQueue()
 			queue:Hide()
 			SetQueueBadge(queue, nil)
 		end
-		raiseQueueAboveCooldown(queue, slotButton)
+		ItemRack.RaiseAboveCooldown(queue:GetParent(), _G["Character" .. ItemRack.SlotInfo[i].name])
 	end
 end
 
@@ -2166,9 +2133,10 @@ function ItemRack.SetSetBindings()
 			local buttonName = "ItemRack" .. UnitName("player") .. GetRealmName() .. setname
 			local button = _G[buttonName] or CreateFrame("Button", buttonName, nil, "SecureActionButtonTemplate")
 
-			button:RegisterForClicks("AnyDown", "AnyUp")
+			button:RegisterForClicks("AnyUp")
 			button:SetAttribute("type", "macro")
-			local macrotext = "/script ItemRack.RunSetBinding(\"" .. setname .. "\")\n"
+			button:SetAttribute("useOnKeyDown", false)
+			local macrotext = ""
 			for slot = 16, 18 do
 				if set.equip[slot] then
 					local name = GetItemInfo("item:" .. set.equip[slot])
@@ -2178,6 +2146,10 @@ function ItemRack.SetSetBindings()
 				end
 			end
 			button:SetAttribute("macrotext", macrotext)
+			local boundSet = setname
+			button:SetScript("PostClick", function()
+				ItemRack.RunSetBinding(boundSet)
+			end)
 			SetBindingClick(set.key, buttonName)
 		end
 	end
@@ -2319,30 +2291,6 @@ function ItemRack.ResetEverything()
 		OnAccept = function() ItemRackUser = nil ItemRackSettings = nil ItemRackItems = nil ItemRackEvents = nil ReloadUI() end
 	}
 	StaticPopup_Show("ItemRackCONFIRMRESET")
-end
-
--- if cpu profiling on, this will add a page to TinyPad with each ItemRack.func()'s time
-function ItemRack.ProfileFuncs()
-	if TinyPadPages then
-		UpdateAddOnCPUUsage()
-		local total = 0
-		local t = {}
-		local whole, decimal
-		for i in pairs(ItemRack) do
-			if type(ItemRack[i]) == "function" then
-				whole = GetFunctionCPUUsage(ItemRack[i])
-				decimal = whole - math.floor(whole)
-				whole = math.floor(whole)
-				table.insert(t, string.format("%04d.%02d %s", whole, decimal, i))
-			end
-		end
-		table.sort(t)
-		local info = "ItemRack profile " .. date() .. " " .. UnitName("player") .. "\n"
-		for i = 1, #(t) do
-			info = info .. t[i] .. "\n"
-		end
-		table.insert(TinyPadPages, info)
-	end
 end
 
 -- current set's table when EnablePerSetQueues is on, otherwise the global one
